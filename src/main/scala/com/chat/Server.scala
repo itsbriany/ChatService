@@ -23,7 +23,7 @@ class Server extends Actor with ActorLogging {
     case c@Connected(remote, local) =>
       log.info(s"Got a connection from ${remote.toString}")
       val connection = sender()
-      val handler = context.actorOf(Props(new SimplisticHandler(connection)))
+      val handler = context.actorOf(Props(new ClientConnectionHandler(connection)))
       connection ! Register(handler)
   }
 
