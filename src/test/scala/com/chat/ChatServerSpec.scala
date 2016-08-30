@@ -16,7 +16,7 @@ import scala.concurrent.duration._
 /**
   * Created by Brian.Yip on 8/26/2016.
   */
-class ServerSpec extends TestKit(ActorSystem()) with WordSpecLike with Matchers {
+class ChatServerSpec extends TestKit(ActorSystem()) with WordSpecLike with Matchers {
 
   class TCPTestClient extends Actor {
     override def receive: Receive = {
@@ -26,8 +26,8 @@ class ServerSpec extends TestKit(ActorSystem()) with WordSpecLike with Matchers 
     }
   }
 
-  "A Server" must {
-    val server = TestActorRef(new Server())
+  s"A ChatServer" must {
+    val server = TestActorRef(new ChatServer())
 
     "handle inbound TCP connections" in {
       implicit val timeout = Timeout(500.millis)

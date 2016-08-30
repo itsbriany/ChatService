@@ -1,9 +1,12 @@
 package com.chat
 
+import java.net.InetSocketAddress
+
 import akka.actor.ActorSystem
 import akka.io.Tcp.Write
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
+import com.chat.message.ClientIdentity
 import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpecLike}
 
 import scala.concurrent.duration._
@@ -17,16 +20,18 @@ class ClientConnectionHandlerSpec extends TestKit(ActorSystem())
   with BeforeAndAfterEach {
 
   var client = TestProbe()
-  var clientConnectionHandler = TestActorRef(new ClientConnectionHandler(client.ref))
+  var clientConnectionHandler =
+    TestActorRef(new ClientConnectionHandler(client.ref, new InetSocketAddress("0.0.0.0", 0)))
 
   override def beforeEach(): Unit = {
     client = TestProbe()
-    clientConnectionHandler = TestActorRef(new ClientConnectionHandler(client.ref))
+    clientConnectionHandler =
+      TestActorRef(new ClientConnectionHandler(client.ref, new InetSocketAddress("0.0.0.0", 0)))
   }
 
-  "A ClientConnectionHandler" must {
-    "receive data from the client and reply to it when it has an identity" in {
-      val identity = new ClientIdentity("Brian")
+  s"A ${ClientConnectionHandler.getClass.getSimpleName}" must {
+    "receive data from the client and reply to it when it has received an identity" in {
+      val identity = new ClientIdentity("Brian", new InetSocketAddress("0.0.0.0", 0))
       clientConnectionHandler.tell(identity, client.ref)
       client.expectMsg(200.millis, Write(ClientConnectionHandler.greeting(identity.getIdentity)))
 

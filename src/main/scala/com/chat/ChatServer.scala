@@ -8,7 +8,7 @@ import akka.io.{IO, Tcp}
 /**
   * Created by Brian.Yip on 8/26/2016.
   */
-class Server extends Actor with ActorLogging {
+class ChatServer extends Actor with ActorLogging {
 
   import akka.io.Tcp._
   import context.system
@@ -23,7 +23,7 @@ class Server extends Actor with ActorLogging {
     case c@Connected(remote, local) =>
       log.info(s"Got a connection from ${remote.toString}")
       val connection = sender()
-      val handler = context.actorOf(Props(new ClientConnectionHandler(connection)))
+      val handler = context.actorOf(Props(new ClientConnectionHandler(connection, remote)))
       connection ! Register(handler)
   }
 

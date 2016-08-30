@@ -7,5 +7,5 @@ import akka.actor.{ActorSystem, Props}
   */
 object ChatSystem extends App {
   implicit val system = ActorSystem("ChatService")
-  system.actorOf(Props[Server], "Server")
+  system.actorOf(Props[ChatServer], "Server")
 }
