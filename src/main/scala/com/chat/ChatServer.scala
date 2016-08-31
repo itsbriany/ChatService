@@ -14,6 +14,8 @@ class ChatServer extends Actor with ActorLogging {
   import context.system
 
   IO(Tcp) ! Bind(self, new InetSocketAddress("0.0.0.0", 9000))
+  val clientIdentityResolver =
+    context.actorOf(Props[ClientIdentityResolver], s"${ClientIdentityResolver.getClass.getSimpleName}")
 
   def receive = {
     case b@Bound(localAddress) => log.info(s"TCP server bound on ${localAddress.toString}")
@@ -23,7 +25,8 @@ class ChatServer extends Actor with ActorLogging {
     case c@Connected(remote, local) =>
       log.info(s"Got a connection from ${remote.toString}")
       val connection = sender()
-      val handler = context.actorOf(Props(new ClientConnectionHandler(connection, remote)))
+      val handler =
+        context.actorOf(Props(new ClientConnectionHandler(connection, remote, clientIdentityResolver)))
       connection ! Register(handler)
   }
 

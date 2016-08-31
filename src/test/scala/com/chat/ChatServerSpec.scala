@@ -37,8 +37,9 @@ class ChatServerSpec extends TestKit(ActorSystem()) with WordSpecLike with Match
       Await.result(response, 1.second)
 
       // It takes some time to create the child actor
+      // One child actor is the ClientIdentityResolver, so we expect 2 children
       Thread.sleep(500)
-      server.children.size shouldBe 1
+      server.children.size shouldBe 2
     }
   }
 

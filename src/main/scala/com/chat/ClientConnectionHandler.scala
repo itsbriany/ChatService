@@ -5,38 +5,60 @@ import java.net.InetSocketAddress
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.io.Tcp.{PeerClosed, Received, Write}
 import akka.util.ByteString
-import com.chat.message.ClientIdentity
+import com.chat.message.{AddClientIdentity, ClientIdentity, FindClientIdentity, RemoveClientIdentity}
+
+import scala.concurrent.duration._
 
 /**
   * Created by Brian.Yip on 8/26/2016.
   */
-class ClientConnectionHandler(connection: ActorRef, address: InetSocketAddress) extends Actor
-  with ActorLogging {
+class ClientConnectionHandler(connection: ActorRef,
+                              address: InetSocketAddress,
+                              clientIdentityResolver: ActorRef)
+  extends Actor with ActorLogging {
 
-  var clientIdentity = new ClientIdentity("", address)
+  var clientIdentity = new ClientIdentity("", address, self)
+  var destinationConnection = connection
 
   def receive = {
     case text: String => handleString(text)
-    case clientIdentity: ClientIdentity => handleClientIdentity(clientIdentity)
+    case destinationConnection: ActorRef => this.destinationConnection = destinationConnection
+    case findClientIdentity: FindClientIdentity => clientIdentityResolver ! findClientIdentity
+    case addClientIdentity: AddClientIdentity => handleClientIdentity(addClientIdentity)
     case Received(data) => connection ! data
-    case PeerClosed => context stop self
+    case PeerClosed => handlePeerClosed()
   }
 
-  def handleClientIdentity(clientIdentity: ClientIdentity): Unit = {
-    this.clientIdentity = clientIdentity
-    connection ! Write(ClientConnectionHandler.greeting(this.clientIdentity.getIdentity))
+  def handleClientIdentity(addClientIdentity: AddClientIdentity): Unit = {
+    this.clientIdentity = addClientIdentity.getClientIdentity
+    clientIdentityResolver ! addClientIdentity
   }
 
   def handleString(data: String): Unit = {
-    if (this.clientIdentity.isEmpty)
+    if (this.clientIdentity.isIdentityEmpty) {
       connection ! Write(ClientConnectionHandler.missingIdentityReply)
-    else
-      connection ! Write(ByteString(data))
+      return
+    }
+    writeData(ByteString(data))
+  }
+
+  def writeData(data: ByteString): Unit = {
+    connection ! Write(data)
+    if (destinationConnection != self)
+      destinationConnection ! Write(data)
+  }
+
+  def handlePeerClosed(): Unit = {
+    val removeClientIdentity = new RemoveClientIdentity(clientIdentity)
+    clientIdentityResolver ! removeClientIdentity
+    log.info(s"$address has disconnected")
+    context stop self
   }
 }
 
 object ClientConnectionHandler {
-  def greeting(identity: String): ByteString = ByteString(s"Welcome $identity!")
+  val addClientIdentityFutureTimeout = 500.millis
+
   def missingIdentityReply: ByteString =
     ByteString("Please specify a Client Identity before sending messages")
 }

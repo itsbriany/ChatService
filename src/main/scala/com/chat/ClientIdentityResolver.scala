@@ -1,8 +1,7 @@
 package com.chat
 
-import java.net.InetSocketAddress
-
-import akka.actor.Actor
+import akka.actor.{Actor, ActorRef}
+import akka.io.Tcp.Write
 import akka.util.ByteString
 import com.chat.message.{AddClientIdentity, ClientIdentity, FindClientIdentity, RemoveClientIdentity}
 
@@ -12,7 +11,7 @@ import com.chat.message.{AddClientIdentity, ClientIdentity, FindClientIdentity, 
 class ClientIdentityResolver extends Actor {
   type Identity = String
 
-  var clientIdentityMap = new collection.mutable.HashMap[Identity, InetSocketAddress]()
+  var clientIdentityMap = new collection.mutable.HashMap[Identity, ActorRef]()
 
   override def receive: Receive = {
     case addClientIdentity: AddClientIdentity =>
@@ -25,11 +24,12 @@ class ClientIdentityResolver extends Actor {
 
   def handleAddClientIdentity(clientIdentity: ClientIdentity): Unit = {
     if (clientIdentityMap contains clientIdentity.getIdentity) {
-      sender() ! ClientIdentityResolver.identityAlreadyExistsMessage(clientIdentity)
+      clientIdentity.getConnection ! Write(ClientIdentityResolver.identityAlreadyExistsMessage(clientIdentity))
       return
     }
 
-    clientIdentityMap += clientIdentity.getIdentity -> clientIdentity.getAddress
+    clientIdentityMap += clientIdentity.getIdentity -> clientIdentity.getConnection
+    clientIdentity.getConnection ! Write(ClientIdentityResolver.greeting(clientIdentity.getIdentity))
   }
 
   def handleRemoveClientIdentity(clientIdentity: ClientIdentity): Unit = {
@@ -47,4 +47,6 @@ class ClientIdentityResolver extends Actor {
 object ClientIdentityResolver {
   def identityAlreadyExistsMessage(clientIdentity: ClientIdentity): ByteString =
     ByteString(s"${clientIdentity.getIdentity} already exists!")
+
+  def greeting(identity: String): ByteString = ByteString(s"Welcome $identity!")
 }

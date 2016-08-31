@@ -2,11 +2,11 @@ package com.chat
 
 import java.net.InetSocketAddress
 
-import akka.actor.ActorSystem
+import akka.actor.{Actor, ActorSystem}
 import akka.io.Tcp.Write
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
-import com.chat.message.ClientIdentity
+import com.chat.message.{AddClientIdentity, ClientIdentity, FindClientIdentity}
 import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpecLike}
 
 import scala.concurrent.duration._
@@ -19,21 +19,31 @@ class ClientConnectionHandlerSpec extends TestKit(ActorSystem())
   with Matchers
   with BeforeAndAfterEach {
 
+  val mockClientIdentityResolver = TestActorRef(new MockClientIdentityResolver())
+  val address = new InetSocketAddress("0.0.0.0", 0)
   var client = TestProbe()
   var clientConnectionHandler =
-    TestActorRef(new ClientConnectionHandler(client.ref, new InetSocketAddress("0.0.0.0", 0)))
+    TestActorRef(new ClientConnectionHandler(client.ref, address, mockClientIdentityResolver))
 
   override def beforeEach(): Unit = {
     client = TestProbe()
     clientConnectionHandler =
-      TestActorRef(new ClientConnectionHandler(client.ref, new InetSocketAddress("0.0.0.0", 0)))
+      TestActorRef(new ClientConnectionHandler(client.ref, address, mockClientIdentityResolver))
+  }
+
+  class MockClientIdentityResolver extends Actor {
+    val mockConnection = TestProbe().ref
+
+    override def receive: Receive = {
+      case findClientIdentity: FindClientIdentity => sender ! mockConnection
+    }
   }
 
   s"A ${ClientConnectionHandler.getClass.getSimpleName}" must {
     "receive data from the client and reply to it when it has received an identity" in {
-      val identity = new ClientIdentity("Brian", new InetSocketAddress("0.0.0.0", 0))
-      clientConnectionHandler.tell(identity, client.ref)
-      client.expectMsg(200.millis, Write(ClientConnectionHandler.greeting(identity.getIdentity)))
+      val clientIdentity = new ClientIdentity("Brian", address, client.ref)
+      val addClientIdentity = new AddClientIdentity(clientIdentity)
+      clientConnectionHandler.tell(addClientIdentity, client.ref)
 
       val stringMessage = "Hello!"
       clientConnectionHandler.tell(stringMessage, client.ref)
@@ -44,6 +54,27 @@ class ClientConnectionHandlerSpec extends TestKit(ActorSystem())
       val stringMessage = "Hello!"
       clientConnectionHandler.tell(stringMessage, client.ref)
       client.expectMsg(200.millis, Write(ClientConnectionHandler.missingIdentityReply))
+    }
+
+    "be capable of requesting a destination to send a message to" in {
+      val findClientIdentity = new FindClientIdentity(null)
+      clientConnectionHandler.tell(findClientIdentity, client.ref)
+
+      clientConnectionHandler.underlyingActor.destinationConnection shouldBe mockClientIdentityResolver.underlyingActor.mockConnection
+    }
+
+    "be capable of sending a string message to itself and another client" in {
+      val destinationConnection = TestProbe()
+      val message = "Message sent to destination"
+      val expectedResponse = Write(ByteString(message))
+
+      clientConnectionHandler.underlyingActor.destinationConnection = destinationConnection.ref
+      clientConnectionHandler.underlyingActor.writeData(ByteString(message))
+
+      client.expectMsg(200.millis, expectedResponse)
+      destinationConnection.expectMsg(200.millis, expectedResponse)
+      client.expectNoMsg(200.millis)
+      destinationConnection.expectNoMsg(200.millis)
     }
   }
 }

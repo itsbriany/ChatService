@@ -2,14 +2,17 @@ package com.chat.message
 
 import java.net.InetSocketAddress
 
+import akka.actor.ActorRef
+
 /**
   * Created by itsbriany on 2016-08-29.
   */
-// TODO: Move this to protobuf
-class ClientIdentity(identity: String, address: InetSocketAddress) {
+class ClientIdentity(identity: String, address: InetSocketAddress, connection: ActorRef) {
   def getIdentity: String = identity
 
   def getAddress: InetSocketAddress = address
 
-  def isEmpty: Boolean = identity.isEmpty
+  def getConnection: ActorRef = connection
+
+  def isIdentityEmpty: Boolean = identity.isEmpty
 }
