@@ -4,9 +4,12 @@ import java.net.InetSocketAddress
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.io.Tcp.{PeerClosed, Received, Write}
-import akka.util.ByteString
+import akka.pattern.ask
+import akka.util.{ByteString, Timeout}
+import com.chat.generated.common.{ClientIdentity, SetDestination}
 import com.chat.message.{ActorClient, AddActorClient, FindActorClient, RemoveActorClient}
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 /**
@@ -17,25 +20,42 @@ class ClientConnectionHandler(connection: ActorRef,
                               clientIdentityResolver: ActorRef)
   extends Actor with ActorLogging {
 
-  var client = new ActorClient("", self)
+  var actorClient = new ActorClient("", self)
   var destinationConnection = connection
 
   def receive = {
-    case destinationConnection: ActorRef => this.destinationConnection = destinationConnection
-    case findClientIdentity: FindActorClient => clientIdentityResolver ! findClientIdentity
-    case addClientIdentity: AddActorClient => handleClientIdentity(addClientIdentity)
+    case clientIdentity: ClientIdentity => handleClientIdentity(clientIdentity)
+    case setDestination: SetDestination => handleSetDestination(setDestination)
     case data: ByteString => handleData(data)
     case Received(data) => handleData(data)
     case PeerClosed => handlePeerClosed()
   }
 
-  def handleClientIdentity(addClientIdentity: AddActorClient): Unit = {
-    this.client = addClientIdentity.getClientIdentity
-    clientIdentityResolver ! addClientIdentity
+  def handleClientIdentity(clientIdentity: ClientIdentity): Unit = {
+    actorClient = new ActorClient(clientIdentity.identity, self)
+    val addActorClient = new AddActorClient(actorClient)
+    clientIdentityResolver ! addActorClient
+  }
+
+  def handleSetDestination(setDestination: SetDestination): Unit = {
+    val destinationIdentity = setDestination.getClientIdentity.identity
+    val destinationActorClient = new ActorClient(destinationIdentity, null)
+    val findActorClient = new FindActorClient(destinationActorClient)
+
+    implicit val timeout = Timeout(ClientConnectionHandler.resolveDestinationActorTimeout)
+    val findActorClientFuture = clientIdentityResolver ? findActorClient
+    val result =
+      Await.result(findActorClientFuture, ClientConnectionHandler.resolveDestinationActorTimeout)
+
+    result match {
+      case clientActor: ActorRef => this.destinationConnection = clientActor
+      case _ =>
+        connection ! Write(ClientConnectionHandler.unresolvedDestinationReply(destinationIdentity))
+    }
   }
 
   def handleData(data: ByteString): Unit = {
-    if (this.client.isIdentityEmpty) {
+    if (actorClient.isIdentityEmpty) {
       connection ! Write(ClientConnectionHandler.missingIdentityReply)
       return
     }
@@ -49,7 +69,7 @@ class ClientConnectionHandler(connection: ActorRef,
   }
 
   def handlePeerClosed(): Unit = {
-    val removeClientIdentity = new RemoveActorClient(client)
+    val removeClientIdentity = new RemoveActorClient(actorClient)
     clientIdentityResolver ! removeClientIdentity
     log.info(s"$address has disconnected")
     context stop self
@@ -57,9 +77,12 @@ class ClientConnectionHandler(connection: ActorRef,
 }
 
 object ClientConnectionHandler {
-  val addClientIdentityFutureTimeout = 500.millis
+  val resolveDestinationActorTimeout = 250.millis
 
   def missingIdentityReply: ByteString =
     ByteString("Please specify a Client Identity before sending messages\n")
+
+  def unresolvedDestinationReply(destinationIdentity: String) =
+    ByteString(s"It looks like $destinationIdentity is offline")
 }
 

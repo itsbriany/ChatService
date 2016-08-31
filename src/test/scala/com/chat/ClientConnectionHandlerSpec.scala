@@ -6,6 +6,7 @@ import akka.actor.{Actor, ActorSystem}
 import akka.io.Tcp.Write
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
+import com.chat.generated.common.{ClientIdentity, SetDestination}
 import com.chat.message.{ActorClient, FindActorClient}
 import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpecLike}
 
@@ -33,16 +34,28 @@ class ClientConnectionHandlerSpec extends TestKit(ActorSystem())
 
   class MockClientIdentityResolver extends Actor {
     val mockConnection = TestProbe().ref
+    val expectedIdentity = "JonJon"
 
     override def receive: Receive = {
-      case findClientIdentity: FindActorClient => sender ! mockConnection
+      case findActorClient: FindActorClient =>
+        if (findActorClient.getClientIdentity.getIdentity == expectedIdentity)
+          sender ! mockConnection
+        else
+          sender ! None
     }
   }
 
   s"A ${ClientConnectionHandler.getClass.getSimpleName}" must {
+    s"set its identity when receiving a ${ClientIdentity.getClass.getSimpleName} message" in {
+      val expectedIdentity = "Brian"
+      val clientIdentity = new ClientIdentity(expectedIdentity)
+      clientConnectionHandler.tell(clientIdentity, client.ref)
+      clientConnectionHandler.underlyingActor.actorClient.getIdentity shouldBe expectedIdentity
+    }
+
     "receive data from the client and reply to it when it has received an identity" in {
       val actorClient = new ActorClient("Brian", client.ref)
-      clientConnectionHandler.underlyingActor.client = actorClient
+      clientConnectionHandler.underlyingActor.actorClient = actorClient
 
       val byteStringMessage = ByteString("Hello!")
       clientConnectionHandler.tell(byteStringMessage, client.ref)
@@ -55,11 +68,22 @@ class ClientConnectionHandlerSpec extends TestKit(ActorSystem())
       client.expectMsg(200.millis, Write(ClientConnectionHandler.missingIdentityReply))
     }
 
-    "be capable of requesting a destination to send a message to" in {
-      val findActorClient = new FindActorClient(null)
-      clientConnectionHandler.tell(findActorClient, client.ref)
+    "let the client choose its destination to send its messages to" in {
+      val destinationClientIdentity = new ClientIdentity("JonJon")
+      val setDestinationMessage = new SetDestination(Option[ClientIdentity](destinationClientIdentity))
+      clientConnectionHandler.tell(setDestinationMessage, client.ref)
 
       clientConnectionHandler.underlyingActor.destinationConnection shouldBe mockClientIdentityResolver.underlyingActor.mockConnection
+    }
+
+    "let the client know when the client's desired destination is unreachable" in {
+      val identity = "Not JonJon"
+      val destinationClientIdentity = new ClientIdentity(identity)
+      val setDestinationMessage = new SetDestination(Option[ClientIdentity](destinationClientIdentity))
+      clientConnectionHandler.tell(setDestinationMessage, client.ref)
+
+      client.expectMsg(200.millis, Write(ClientConnectionHandler.unresolvedDestinationReply(identity)))
+      clientConnectionHandler.underlyingActor.destinationConnection shouldBe client.ref
     }
 
     "be capable of sending a string message to itself and another client" in {

@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+// This is available because of the PB.protobufConfig on scalapb-runtime in build.sbt
+import "scalapb/scalapb.proto";
+
+package com.chat.generated;
+
+message ClientIdentity {
+    string identity = 1;
+}
+
+message SetDestination {
+    ClientIdentity clientIdentity = 1;
+}
