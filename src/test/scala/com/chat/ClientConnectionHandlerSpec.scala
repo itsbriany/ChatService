@@ -6,7 +6,7 @@ import akka.actor.{Actor, ActorSystem}
 import akka.io.Tcp.Write
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
-import com.chat.message.{AddClientIdentity, ClientIdentity, FindClientIdentity}
+import com.chat.message.{ClientIdentity, FindClientIdentity}
 import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpecLike}
 
 import scala.concurrent.duration._
@@ -42,17 +42,16 @@ class ClientConnectionHandlerSpec extends TestKit(ActorSystem())
   s"A ${ClientConnectionHandler.getClass.getSimpleName}" must {
     "receive data from the client and reply to it when it has received an identity" in {
       val clientIdentity = new ClientIdentity("Brian", address, client.ref)
-      val addClientIdentity = new AddClientIdentity(clientIdentity)
-      clientConnectionHandler.tell(addClientIdentity, client.ref)
+      clientConnectionHandler.underlyingActor.clientIdentity = clientIdentity
 
-      val stringMessage = "Hello!"
-      clientConnectionHandler.tell(stringMessage, client.ref)
-      client.expectMsg(200.millis, Write(ByteString(stringMessage)))
+      val byteStringMessage = ByteString("Hello!")
+      clientConnectionHandler.tell(byteStringMessage, client.ref)
+      client.expectMsg(200.millis, Write(byteStringMessage))
     }
 
     "let the client know that they need to specify an identity when none is provided" in {
-      val stringMessage = "Hello!"
-      clientConnectionHandler.tell(stringMessage, client.ref)
+      val byteStringMessage = ByteString("Hello!")
+      clientConnectionHandler.tell(byteStringMessage, client.ref)
       client.expectMsg(200.millis, Write(ClientConnectionHandler.missingIdentityReply))
     }
 

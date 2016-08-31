@@ -21,11 +21,11 @@ class ClientConnectionHandler(connection: ActorRef,
   var destinationConnection = connection
 
   def receive = {
-    case text: String => handleString(text)
     case destinationConnection: ActorRef => this.destinationConnection = destinationConnection
     case findClientIdentity: FindClientIdentity => clientIdentityResolver ! findClientIdentity
     case addClientIdentity: AddClientIdentity => handleClientIdentity(addClientIdentity)
-    case Received(data) => connection ! data
+    case data: ByteString => handleData(data)
+    case Received(data) => handleData(data)
     case PeerClosed => handlePeerClosed()
   }
 
@@ -34,12 +34,12 @@ class ClientConnectionHandler(connection: ActorRef,
     clientIdentityResolver ! addClientIdentity
   }
 
-  def handleString(data: String): Unit = {
+  def handleData(data: ByteString): Unit = {
     if (this.clientIdentity.isIdentityEmpty) {
       connection ! Write(ClientConnectionHandler.missingIdentityReply)
       return
     }
-    writeData(ByteString(data))
+    writeData(data)
   }
 
   def writeData(data: ByteString): Unit = {
@@ -60,6 +60,6 @@ object ClientConnectionHandler {
   val addClientIdentityFutureTimeout = 500.millis
 
   def missingIdentityReply: ByteString =
-    ByteString("Please specify a Client Identity before sending messages")
+    ByteString("Please specify a Client Identity before sending messages\n")
 }
 
