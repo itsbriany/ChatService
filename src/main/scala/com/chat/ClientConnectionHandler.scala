@@ -5,7 +5,7 @@ import java.net.InetSocketAddress
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.io.Tcp.{PeerClosed, Received, Write}
 import akka.util.ByteString
-import com.chat.message.{AddClientIdentity, ClientIdentity, FindClientIdentity, RemoveClientIdentity}
+import com.chat.message.{ActorClient, AddActorClient, FindActorClient, RemoveActorClient}
 
 import scala.concurrent.duration._
 
@@ -17,25 +17,25 @@ class ClientConnectionHandler(connection: ActorRef,
                               clientIdentityResolver: ActorRef)
   extends Actor with ActorLogging {
 
-  var clientIdentity = new ClientIdentity("", self)
+  var client = new ActorClient("", self)
   var destinationConnection = connection
 
   def receive = {
     case destinationConnection: ActorRef => this.destinationConnection = destinationConnection
-    case findClientIdentity: FindClientIdentity => clientIdentityResolver ! findClientIdentity
-    case addClientIdentity: AddClientIdentity => handleClientIdentity(addClientIdentity)
+    case findClientIdentity: FindActorClient => clientIdentityResolver ! findClientIdentity
+    case addClientIdentity: AddActorClient => handleClientIdentity(addClientIdentity)
     case data: ByteString => handleData(data)
     case Received(data) => handleData(data)
     case PeerClosed => handlePeerClosed()
   }
 
-  def handleClientIdentity(addClientIdentity: AddClientIdentity): Unit = {
-    this.clientIdentity = addClientIdentity.getClientIdentity
+  def handleClientIdentity(addClientIdentity: AddActorClient): Unit = {
+    this.client = addClientIdentity.getClientIdentity
     clientIdentityResolver ! addClientIdentity
   }
 
   def handleData(data: ByteString): Unit = {
-    if (this.clientIdentity.isIdentityEmpty) {
+    if (this.client.isIdentityEmpty) {
       connection ! Write(ClientConnectionHandler.missingIdentityReply)
       return
     }
@@ -49,7 +49,7 @@ class ClientConnectionHandler(connection: ActorRef,
   }
 
   def handlePeerClosed(): Unit = {
-    val removeClientIdentity = new RemoveClientIdentity(clientIdentity)
+    val removeClientIdentity = new RemoveActorClient(client)
     clientIdentityResolver ! removeClientIdentity
     log.info(s"$address has disconnected")
     context stop self

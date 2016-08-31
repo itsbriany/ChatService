@@ -3,7 +3,7 @@ package com.chat
 import akka.actor.ActorSystem
 import akka.io.Tcp.Write
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import com.chat.message.{AddClientIdentity, ClientIdentity, FindClientIdentity, RemoveClientIdentity}
+import com.chat.message.{ActorClient, AddActorClient, FindActorClient, RemoveActorClient}
 import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpecLike}
 
 import scala.concurrent.duration._
@@ -21,19 +21,19 @@ class ClientIdentityResolverSpec extends TestKit(ActorSystem())
   val identity = "My Identity"
 
   var clientConnection = TestProbe()
-  var clientIdentity = new ClientIdentity(identity, clientConnection.ref)
+  var clientIdentity = new ActorClient(identity, clientConnection.ref)
   var clientIdentityResolver = TestActorRef(new ClientIdentityResolver())
 
-  var addClientIdentity = new AddClientIdentity(clientIdentity)
-  var removeClientIdentity = new RemoveClientIdentity(clientIdentity)
-  var findClientIdentity = new FindClientIdentity(clientIdentity)
+  var addClientIdentity = new AddActorClient(clientIdentity)
+  var removeClientIdentity = new RemoveActorClient(clientIdentity)
+  var findClientIdentity = new FindActorClient(clientIdentity)
 
   override def beforeEach(): Unit = {
     clientConnection = TestProbe()
-    clientIdentity = new ClientIdentity(identity, clientConnection.ref)
-    addClientIdentity = new AddClientIdentity(clientIdentity)
-    removeClientIdentity = new RemoveClientIdentity(clientIdentity)
-    findClientIdentity = new FindClientIdentity(clientIdentity)
+    clientIdentity = new ActorClient(identity, clientConnection.ref)
+    addClientIdentity = new AddActorClient(clientIdentity)
+    removeClientIdentity = new RemoveActorClient(clientIdentity)
+    findClientIdentity = new FindActorClient(clientIdentity)
     clientIdentityResolver = TestActorRef(new ClientIdentityResolver())
   }
 

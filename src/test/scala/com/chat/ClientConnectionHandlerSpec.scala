@@ -6,7 +6,7 @@ import akka.actor.{Actor, ActorSystem}
 import akka.io.Tcp.Write
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
-import com.chat.message.{ClientIdentity, FindClientIdentity}
+import com.chat.message.{ActorClient, FindActorClient}
 import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpecLike}
 
 import scala.concurrent.duration._
@@ -35,14 +35,14 @@ class ClientConnectionHandlerSpec extends TestKit(ActorSystem())
     val mockConnection = TestProbe().ref
 
     override def receive: Receive = {
-      case findClientIdentity: FindClientIdentity => sender ! mockConnection
+      case findClientIdentity: FindActorClient => sender ! mockConnection
     }
   }
 
   s"A ${ClientConnectionHandler.getClass.getSimpleName}" must {
     "receive data from the client and reply to it when it has received an identity" in {
-      val clientIdentity = new ClientIdentity("Brian", client.ref)
-      clientConnectionHandler.underlyingActor.clientIdentity = clientIdentity
+      val actorClient = new ActorClient("Brian", client.ref)
+      clientConnectionHandler.underlyingActor.client = actorClient
 
       val byteStringMessage = ByteString("Hello!")
       clientConnectionHandler.tell(byteStringMessage, client.ref)
@@ -56,8 +56,8 @@ class ClientConnectionHandlerSpec extends TestKit(ActorSystem())
     }
 
     "be capable of requesting a destination to send a message to" in {
-      val findClientIdentity = new FindClientIdentity(null)
-      clientConnectionHandler.tell(findClientIdentity, client.ref)
+      val findActorClient = new FindActorClient(null)
+      clientConnectionHandler.tell(findActorClient, client.ref)
 
       clientConnectionHandler.underlyingActor.destinationConnection shouldBe mockClientIdentityResolver.underlyingActor.mockConnection
     }
