@@ -7,3 +7,4 @@ jdk:
 
 script:
   - sbt protobuf:protobufGenerate
+  - sbt ++$TRAVIS_SCALA_VERSION test
