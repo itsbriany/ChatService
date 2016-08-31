@@ -1,7 +1,5 @@
 package com.chat
 
-import java.net.InetSocketAddress
-
 import akka.actor.ActorSystem
 import akka.io.Tcp.Write
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -20,11 +18,10 @@ class ClientIdentityResolverSpec extends TestKit(ActorSystem())
   with BeforeAndAfterEach {
 
 
-  val address = new InetSocketAddress("0.0.0.0", 0)
   val identity = "My Identity"
 
   var clientConnection = TestProbe()
-  var clientIdentity = new ClientIdentity(identity, address, clientConnection.ref)
+  var clientIdentity = new ClientIdentity(identity, clientConnection.ref)
   var clientIdentityResolver = TestActorRef(new ClientIdentityResolver())
 
   var addClientIdentity = new AddClientIdentity(clientIdentity)
@@ -33,7 +30,7 @@ class ClientIdentityResolverSpec extends TestKit(ActorSystem())
 
   override def beforeEach(): Unit = {
     clientConnection = TestProbe()
-    clientIdentity = new ClientIdentity(identity, address, clientConnection.ref)
+    clientIdentity = new ClientIdentity(identity, clientConnection.ref)
     addClientIdentity = new AddClientIdentity(clientIdentity)
     removeClientIdentity = new RemoveClientIdentity(clientIdentity)
     findClientIdentity = new FindClientIdentity(clientIdentity)

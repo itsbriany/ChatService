@@ -17,7 +17,7 @@ class ClientConnectionHandler(connection: ActorRef,
                               clientIdentityResolver: ActorRef)
   extends Actor with ActorLogging {
 
-  var clientIdentity = new ClientIdentity("", address, self)
+  var clientIdentity = new ClientIdentity("", self)
   var destinationConnection = connection
 
   def receive = {

@@ -41,7 +41,7 @@ class ClientConnectionHandlerSpec extends TestKit(ActorSystem())
 
   s"A ${ClientConnectionHandler.getClass.getSimpleName}" must {
     "receive data from the client and reply to it when it has received an identity" in {
-      val clientIdentity = new ClientIdentity("Brian", address, client.ref)
+      val clientIdentity = new ClientIdentity("Brian", client.ref)
       clientConnectionHandler.underlyingActor.clientIdentity = clientIdentity
 
       val byteStringMessage = ByteString("Hello!")
