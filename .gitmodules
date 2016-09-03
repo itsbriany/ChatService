@@ -1,0 +1,3 @@
+[submodule "src/main/protobuf/GameEngineCommon"]
+	path = src/main/protobuf/GameEngineCommon
+	url = https://github.com/itsbriany/GameEngineCommon.git

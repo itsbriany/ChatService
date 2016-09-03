@@ -2,11 +2,11 @@ package com.chat
 
 import java.net.InetSocketAddress
 
+import GameEngine.Common.Chat.{ClientIdentity, SetDestination}
 import akka.actor.{Actor, ActorSystem}
 import akka.io.Tcp.Write
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
-import com.chat.generated.common.{ClientIdentity, SetDestination}
 import com.chat.message.{ActorClient, FindActorClient}
 import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpecLike}
 

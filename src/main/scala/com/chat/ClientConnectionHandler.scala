@@ -2,11 +2,11 @@ package com.chat
 
 import java.net.InetSocketAddress
 
+import GameEngine.Common.Chat.{ClientIdentity, SetDestination}
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.io.Tcp.{PeerClosed, Received, Write}
 import akka.pattern.ask
 import akka.util.{ByteString, Timeout}
-import com.chat.generated.common.{ClientIdentity, SetDestination}
 import com.chat.message.{ActorClient, AddActorClient, FindActorClient, RemoveActorClient}
 
 import scala.concurrent.Await
