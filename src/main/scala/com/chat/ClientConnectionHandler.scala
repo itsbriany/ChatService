@@ -8,6 +8,7 @@ import akka.io.Tcp.{PeerClosed, Received, Write}
 import akka.pattern.ask
 import akka.util.{ByteString, Timeout}
 import com.chat.message.{ActorClient, AddActorClient, FindActorClient, RemoveActorClient}
+import com.google.protobuf.InvalidProtocolBufferException
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -31,12 +32,6 @@ class ClientConnectionHandler(connection: ActorRef,
     case PeerClosed => handlePeerClosed()
   }
 
-  def handleClientIdentity(clientIdentity: ClientIdentity): Unit = {
-    actorClient = new ActorClient(clientIdentity.identity, self)
-    val addActorClient = new AddActorClient(actorClient)
-    clientIdentityResolver ! addActorClient
-  }
-
   def handleSetDestination(setDestination: SetDestination): Unit = {
     val destinationIdentity = setDestination.getClientIdentity.identity
     val destinationActorClient = new ActorClient(destinationIdentity, null)
@@ -56,10 +51,29 @@ class ClientConnectionHandler(connection: ActorRef,
 
   def handleData(data: ByteString): Unit = {
     if (actorClient.isIdentityEmpty) {
-      connection ! Write(ClientConnectionHandler.missingIdentityReply)
-      return
+      if (!isClientIdentityMessage(data)) {
+        connection ! Write(ClientConnectionHandler.missingIdentityReply)
+        return
+      }
     }
     writeData(data)
+  }
+
+  def isClientIdentityMessage(data: ByteString): Boolean = {
+    val byteArray = data.toArray
+    try {
+      val clientIdentity: ClientIdentity = ClientIdentity.parseFrom(byteArray)
+      handleClientIdentity(clientIdentity)
+      true
+    } catch {
+      case ex: InvalidProtocolBufferException => false
+    }
+  }
+
+  def handleClientIdentity(clientIdentity: ClientIdentity): Unit = {
+    actorClient = new ActorClient(clientIdentity.identity, self)
+    val addActorClient = new AddActorClient(actorClient)
+    clientIdentityResolver ! addActorClient
   }
 
   def writeData(data: ByteString): Unit = {

@@ -68,6 +68,14 @@ class ClientConnectionHandlerSpec extends TestKit(ActorSystem())
       client.expectMsg(200.millis, Write(ClientConnectionHandler.missingIdentityReply))
     }
 
+    "be capable of serializing byte strings to their appropriate protocol buffer message" in {
+      val clientIdentity = ClientIdentity("A client identity")
+      val clientIdentityAsByteString: ByteString = ByteString(clientIdentity.toByteArray)
+      clientConnectionHandler.tell(clientIdentityAsByteString, client.ref)
+      clientConnectionHandler.underlyingActor.actorClient.getIdentity shouldBe clientIdentity.identity
+      client.expectMsg(200.millis, Write(clientIdentityAsByteString))
+    }
+
     "let the client choose its destination to send its messages to" in {
       val destinationClientIdentity = new ClientIdentity("JonJon")
       val setDestinationMessage = new SetDestination(Option[ClientIdentity](destinationClientIdentity))
