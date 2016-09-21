@@ -2,7 +2,7 @@ package com.chat
 
 import java.net.InetSocketAddress
 
-import GameEngine.Common.Chat.{ClientIdentity, SetDestination}
+import GameEngine.Common.chat.{ClientIdentity, SetDestination}
 import akka.actor.{Actor, ActorSystem}
 import akka.io.Tcp.Write
 import akka.testkit.{TestActorRef, TestKit, TestProbe}

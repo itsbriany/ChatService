@@ -2,7 +2,7 @@ package com.chat
 
 import java.net.InetSocketAddress
 
-import GameEngine.Common.Chat.{ClientIdentity, SetDestination}
+import GameEngine.Common.chat.{ClientIdentity, SetDestination}
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.io.Tcp.{PeerClosed, Received, Write}
 import akka.pattern.ask
@@ -70,16 +70,16 @@ class ClientConnectionHandler(connection: ActorRef,
     }
   }
 
-  def handleClientIdentity(clientIdentity: ClientIdentity): Unit = {
-    actorClient = new ActorClient(clientIdentity.identity, self)
-    val addActorClient = new AddActorClient(actorClient)
-    clientIdentityResolver ! addActorClient
-  }
-
   def writeData(data: ByteString): Unit = {
     connection ! Write(data)
     if (destinationConnection != self)
       destinationConnection ! Write(data)
+  }
+
+  def handleClientIdentity(clientIdentity: ClientIdentity): Unit = {
+    actorClient = new ActorClient(clientIdentity.identity, self)
+    val addActorClient = new AddActorClient(actorClient)
+    clientIdentityResolver ! addActorClient
   }
 
   def handlePeerClosed(): Unit = {
