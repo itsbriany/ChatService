@@ -2,7 +2,7 @@ package com.chat
 
 import java.net.InetSocketAddress
 
-import GameEngine.Common.chat.{ClientIdentity, SetDestination}
+import GameEngine.Common.chat.{ChatMessage, ClientIdentity, SetDestination}
 import akka.actor.{Actor, ActorSystem}
 import akka.io.Tcp.Write
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
@@ -62,17 +62,22 @@ class ClientConnectionHandlerSpec extends TestKit(ActorSystem())
       client.expectMsg(200.millis, Write(byteStringMessage))
     }
 
-    "let the client know that they need to specify an identity when none is provided" in {
+    s"let the client know that message format sent is not a ${ChatMessage.getClass.getSimpleName}" in {
       val byteStringMessage = ByteString("Hello!")
       clientConnectionHandler.tell(byteStringMessage, client.ref)
-      client.expectMsg(200.millis, Write(ClientConnectionHandler.missingIdentityReply))
+      client.expectMsg(200.millis, Write(ClientConnectionHandler.notAChatMessageReply))
     }
 
     "be capable of serializing byte strings to their appropriate protocol buffer message" in {
-      val clientIdentity = ClientIdentity("A client identity")
-      val clientIdentityAsByteString: ByteString = ByteString(clientIdentity.toByteArray)
+      val source = ClientIdentity("Source")
+      val destination = ClientIdentity("Destination")
+      val payload = "I am the text!"
+      val chatMessage =
+        ChatMessage(Option[ClientIdentity](source), Option[ClientIdentity](destination), payload)
+
+      val clientIdentityAsByteString: ByteString = ByteString(chatMessage.toByteArray)
       clientConnectionHandler.tell(clientIdentityAsByteString, client.ref)
-      clientConnectionHandler.underlyingActor.actorClient.getIdentity shouldBe clientIdentity.identity
+      clientConnectionHandler.underlyingActor.actorClient.getIdentity shouldBe chatMessage.getSource.identity
       client.expectMsg(200.millis, Write(clientIdentityAsByteString))
     }
 

@@ -2,7 +2,7 @@ package com.chat
 
 import java.net.InetSocketAddress
 
-import GameEngine.Common.chat.{ClientIdentity, SetDestination}
+import GameEngine.Common.chat.{ChatMessage, ClientIdentity, SetDestination}
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.io.Tcp.{PeerClosed, Received, Write}
 import akka.pattern.ask
@@ -49,21 +49,30 @@ class ClientConnectionHandler(connection: ActorRef,
     }
   }
 
+  /**
+    * Handle all data that comes over the wire
+    *
+    * @param data The data coming over the wire as a ByteString
+    */
   def handleData(data: ByteString): Unit = {
+    // Attempt to serialize the data as a Chat Message
+    // Let the client know that the message was not a chat message on failure
+    // Reply back to the client in the following format: [Date ClientIdentity] Message
+    // Extra: it may be nice to be format the message
     if (actorClient.isIdentityEmpty) {
-      if (!isClientIdentityMessage(data)) {
-        connection ! Write(ClientConnectionHandler.missingIdentityReply)
+      if (!isChatMessage(data)) {
+        connection ! Write(ClientConnectionHandler.notAChatMessageReply)
         return
       }
     }
     writeData(data)
   }
 
-  def isClientIdentityMessage(data: ByteString): Boolean = {
+  def isChatMessage(data: ByteString): Boolean = {
     val byteArray = data.toArray
     try {
-      val clientIdentity: ClientIdentity = ClientIdentity.parseFrom(byteArray)
-      handleClientIdentity(clientIdentity)
+      val chatMessage: ChatMessage = ChatMessage.parseFrom(byteArray)
+      handleClientIdentity(chatMessage.getSource)
       true
     } catch {
       case ex: InvalidProtocolBufferException => false
@@ -93,8 +102,8 @@ class ClientConnectionHandler(connection: ActorRef,
 object ClientConnectionHandler {
   val resolveDestinationActorTimeout = 250.millis
 
-  def missingIdentityReply: ByteString =
-    ByteString("Please specify a Client Identity before sending messages\n")
+  def notAChatMessageReply: ByteString =
+    ByteString("Not a chat message\n")
 
   def unresolvedDestinationReply(destinationIdentity: String) =
     ByteString(s"It looks like $destinationIdentity is offline")
