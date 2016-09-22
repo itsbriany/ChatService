@@ -3,11 +3,11 @@ package com.chat
 import java.net.InetSocketAddress
 
 import GameEngine.Common.chat.{ChatMessage, ClientIdentity}
-import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.io.Tcp.{PeerClosed, Received, Write}
 import akka.pattern.ask
 import akka.util.{ByteString, Timeout}
-import com.chat.message.{ActorClient, AddActorClient, FindActorClient, RemoveActorClient}
+import com.chat.message._
 import com.google.protobuf.InvalidProtocolBufferException
 
 import scala.concurrent.Await
@@ -20,6 +20,8 @@ class ClientConnectionHandler(connection: ActorRef,
                               address: InetSocketAddress,
                               clientIdentityResolver: ActorRef)
   extends Actor with ActorLogging {
+
+  val responseBroadcaster = context.actorOf(Props[ResponseBroadcaster])
 
   var actorClient = new ActorClient("", self)
   var destinationConnection = connection
@@ -48,8 +50,7 @@ class ClientConnectionHandler(connection: ActorRef,
         handleClientIdentity(chatMessage.getSource)
       }
       findDestination(chatMessage.getDestination)
-      val dataToWrite = ByteString(chatMessage.text)
-      writeData(dataToWrite)
+      broadcastChatMessage(chatMessage)
     } catch {
       case ex: InvalidProtocolBufferException =>
         connection ! Write(ClientConnectionHandler.notAChatMessageReply)
@@ -77,10 +78,9 @@ class ClientConnectionHandler(connection: ActorRef,
     }
   }
 
-  def writeData(data: ByteString): Unit = {
-    connection ! Write(data)
-    if (destinationConnection != self)
-      destinationConnection ! Write(data)
+  def broadcastChatMessage(chatMessage: ChatMessage): Unit = {
+    val broadcastedResponse = new BroadcastedResponse(connection, this.destinationConnection, chatMessage)
+    responseBroadcaster ! broadcastedResponse
   }
 
   def handleClientIdentity(clientIdentity: ClientIdentity): Unit = {
