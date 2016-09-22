@@ -2,7 +2,7 @@ package com.chat
 
 import java.net.InetSocketAddress
 
-import GameEngine.Common.chat.{ChatMessage, ClientIdentity, SetDestination}
+import GameEngine.Common.chat.{ChatMessage, ClientIdentity}
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.io.Tcp.{PeerClosed, Received, Write}
 import akka.pattern.ask
@@ -26,15 +26,43 @@ class ClientConnectionHandler(connection: ActorRef,
 
   def receive = {
     case clientIdentity: ClientIdentity => handleClientIdentity(clientIdentity)
-    case setDestination: SetDestination => handleSetDestination(setDestination)
     case data: ByteString => handleData(data)
     case Received(data) => handleData(data)
     case PeerClosed => handlePeerClosed()
   }
 
-  def handleSetDestination(setDestination: SetDestination): Unit = {
-    val destinationIdentity = setDestination.getClientIdentity.identity
-    val destinationActorClient = new ActorClient(destinationIdentity, null)
+  /**
+    * Handle all data that comes over the wire
+    *
+    * @param data The data coming over the wire as a ByteString
+    */
+  def handleData(data: ByteString): Unit = {
+    // TODO
+    // Attempt to serialize the data as a Chat Message
+    // Let the client know that the message was not a chat message on failure
+    // Reply back to the client in the following format: [Date ClientIdentity] Message
+    // Extra: it may be nice to be format the message
+    try {
+      val chatMessage: ChatMessage = ChatMessage.parseFrom(data.toArray)
+      if (actorClient.isIdentityEmpty) {
+        handleClientIdentity(chatMessage.getSource)
+      }
+      findDestination(chatMessage.getDestination)
+      val dataToWrite = ByteString(chatMessage.text)
+      writeData(dataToWrite)
+    } catch {
+      case ex: InvalidProtocolBufferException =>
+        connection ! Write(ClientConnectionHandler.notAChatMessageReply)
+    }
+  }
+
+  def findDestination(destination: ClientIdentity): Unit = {
+    if (destination.identity.isEmpty) {
+      connection ! Write(ClientConnectionHandler.missingDestinationReply)
+      return
+    }
+
+    val destinationActorClient = new ActorClient(destination.identity, null)
     val findActorClient = new FindActorClient(destinationActorClient)
 
     implicit val timeout = Timeout(ClientConnectionHandler.resolveDestinationActorTimeout)
@@ -45,37 +73,7 @@ class ClientConnectionHandler(connection: ActorRef,
     result match {
       case clientActor: ActorRef => this.destinationConnection = clientActor
       case _ =>
-        connection ! Write(ClientConnectionHandler.unresolvedDestinationReply(destinationIdentity))
-    }
-  }
-
-  /**
-    * Handle all data that comes over the wire
-    *
-    * @param data The data coming over the wire as a ByteString
-    */
-  def handleData(data: ByteString): Unit = {
-    // Attempt to serialize the data as a Chat Message
-    // Let the client know that the message was not a chat message on failure
-    // Reply back to the client in the following format: [Date ClientIdentity] Message
-    // Extra: it may be nice to be format the message
-    if (actorClient.isIdentityEmpty) {
-      if (!isChatMessage(data)) {
-        connection ! Write(ClientConnectionHandler.notAChatMessageReply)
-        return
-      }
-    }
-    writeData(data)
-  }
-
-  def isChatMessage(data: ByteString): Boolean = {
-    val byteArray = data.toArray
-    try {
-      val chatMessage: ChatMessage = ChatMessage.parseFrom(byteArray)
-      handleClientIdentity(chatMessage.getSource)
-      true
-    } catch {
-      case ex: InvalidProtocolBufferException => false
+        connection ! Write(ClientConnectionHandler.unresolvedDestinationReply(destination.identity))
     }
   }
 
@@ -86,6 +84,11 @@ class ClientConnectionHandler(connection: ActorRef,
   }
 
   def handleClientIdentity(clientIdentity: ClientIdentity): Unit = {
+    if (clientIdentity.identity.isEmpty) {
+      connection ! Write(ClientConnectionHandler.missingSourceReply)
+      return
+    }
+
     actorClient = new ActorClient(clientIdentity.identity, self)
     val addActorClient = new AddActorClient(actorClient)
     clientIdentityResolver ! addActorClient
@@ -103,9 +106,14 @@ object ClientConnectionHandler {
   val resolveDestinationActorTimeout = 250.millis
 
   def notAChatMessageReply: ByteString =
-    ByteString("Not a chat message\n")
+    ByteString(s"Not a ${ChatMessage.getClass.getSimpleName}")
+
+  def missingSourceReply: ByteString =
+    ByteString("Field missing: Source\n")
 
   def unresolvedDestinationReply(destinationIdentity: String) =
     ByteString(s"It looks like $destinationIdentity is offline")
+
+  def missingDestinationReply: ByteString = ByteString(s"Field missing: Destination")
 }
 
