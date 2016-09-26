@@ -39,11 +39,6 @@ class ClientConnectionHandler(connection: ActorRef,
     * @param data The data coming over the wire as a ByteString
     */
   def handleData(data: ByteString): Unit = {
-    // TODO
-    // Attempt to serialize the data as a Chat Message
-    // Let the client know that the message was not a chat message on failure
-    // Reply back to the client in the following format: [Date ClientIdentity] Message
-    // Extra: it may be nice to be format the message
     try {
       val chatMessage: ChatMessage = ChatMessage.parseFrom(data.toArray)
       if (actorClient.isIdentityEmpty) {

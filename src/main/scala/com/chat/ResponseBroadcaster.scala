@@ -1,5 +1,9 @@
 package com.chat
 
+import java.text.SimpleDateFormat
+import java.util.Date
+
+import GameEngine.Common.chat.ChatMessage
 import akka.actor.{Actor, ActorLogging}
 import akka.io.Tcp.Write
 import akka.util.ByteString
@@ -19,5 +23,21 @@ class ResponseBroadcaster extends Actor with ActorLogging {
     broadcastedResponse.getSource ! Write(response)
     if (broadcastedResponse.getSource != broadcastedResponse.getDestination)
       broadcastedResponse.getDestination ! Write(response)
+  }
+
+  def formatResponse(chatMessage: ChatMessage, timestamp: Date): ByteString = {
+    val formatter = new SimpleDateFormat("HH:mm:ss")
+    val timestampAsString = formatter.format(timestamp)
+
+    // [DateFormat Source] Message
+    val buffer = new StringBuilder
+    buffer += '['
+    buffer ++= timestampAsString
+    buffer += ' '
+    buffer ++= chatMessage.getSource.identity
+    buffer ++= "] "
+    buffer ++= chatMessage.text
+
+    ByteString(buffer.toString())
   }
 }
