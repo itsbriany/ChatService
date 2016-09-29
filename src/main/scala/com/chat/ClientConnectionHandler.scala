@@ -5,12 +5,10 @@ import java.net.InetSocketAddress
 import GameEngine.Common.chat.{ChatMessage, ClientIdentity}
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.io.Tcp.{PeerClosed, Received, Write}
-import akka.pattern.ask
-import akka.util.{ByteString, Timeout}
+import akka.util.ByteString
 import com.chat.message._
 import com.google.protobuf.InvalidProtocolBufferException
 
-import scala.concurrent.Await
 import scala.concurrent.duration._
 
 /**
@@ -21,8 +19,8 @@ class ClientConnectionHandler(connection: ActorRef,
                               clientIdentityResolver: ActorRef)
   extends Actor with ActorLogging {
 
-  val responseBroadcaster = context.actorOf(Props[ResponseBroadcaster])
-
+  var responseBroadcaster =
+    context.actorOf(Props(new ResponseBroadcaster(connection, clientIdentityResolver)))
   var actorClient = new ActorClient("", self)
   var destinationConnection = connection
 
@@ -44,7 +42,6 @@ class ClientConnectionHandler(connection: ActorRef,
       if (actorClient.isIdentityEmpty) {
         handleClientIdentity(chatMessage.getSource)
       }
-      findDestination(chatMessage.getDestination)
       broadcastChatMessage(chatMessage)
     } catch {
       case ex: InvalidProtocolBufferException =>
@@ -52,30 +49,8 @@ class ClientConnectionHandler(connection: ActorRef,
     }
   }
 
-  def findDestination(destination: ClientIdentity): Unit = {
-    if (destination.identity.isEmpty) {
-      connection ! Write(ClientConnectionHandler.missingDestinationReply)
-      return
-    }
-
-    val destinationActorClient = new ActorClient(destination.identity, null)
-    val findActorClient = new FindActorClient(destinationActorClient)
-
-    implicit val timeout = Timeout(ClientConnectionHandler.resolveDestinationActorTimeout)
-    val findActorClientFuture = clientIdentityResolver ? findActorClient
-    val result =
-      Await.result(findActorClientFuture, ClientConnectionHandler.resolveDestinationActorTimeout)
-
-    result match {
-      case clientActor: ActorRef => this.destinationConnection = clientActor
-      case _ =>
-        connection ! Write(ClientConnectionHandler.unresolvedDestinationReply(destination.identity))
-    }
-  }
-
   def broadcastChatMessage(chatMessage: ChatMessage): Unit = {
-    val broadcastedResponse = new BroadcastedResponse(connection, this.destinationConnection, chatMessage)
-    responseBroadcaster ! broadcastedResponse
+    responseBroadcaster ! chatMessage
   }
 
   def handleClientIdentity(clientIdentity: ClientIdentity): Unit = {
