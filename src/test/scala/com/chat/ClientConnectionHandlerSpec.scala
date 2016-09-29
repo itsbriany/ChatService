@@ -28,12 +28,12 @@ class ClientConnectionHandlerSpec extends TestKit(ActorSystem())
   var destinationClient = TestProbe()
   var destinationConnectionHandler =
     TestActorRef(new ClientConnectionHandler(destinationClient.ref, address, mockClientIdentityResolver))
+  var responseBroadcaster = TestProbe()
 
   override def beforeEach(): Unit = {
     destinationClient = TestProbe()
     val destinationId = "Destination"
     mockClientIdentityResolver = TestActorRef(new MockClientIdentityResolver(destinationClient.ref, destinationId))
-
 
     destinationConnectionHandler =
       TestActorRef(new ClientConnectionHandler(destinationClient.ref, address, mockClientIdentityResolver))
@@ -43,6 +43,8 @@ class ClientConnectionHandlerSpec extends TestKit(ActorSystem())
     sourceClient = TestProbe()
     clientConnectionHandler =
       TestActorRef(new ClientConnectionHandler(sourceClient.ref, address, mockClientIdentityResolver))
+    responseBroadcaster = TestProbe()
+    clientConnectionHandler.underlyingActor.responseBroadcaster = responseBroadcaster.ref
   }
 
 
@@ -71,7 +73,9 @@ class ClientConnectionHandlerSpec extends TestKit(ActorSystem())
     }
 
     "let the client know that it needs to set the source in the ChatMessage if it has not already been done" in {
-      val chatMessage = new ChatMessage(Option[ClientIdentity](null), Option[ClientIdentity](null), "Hello!")
+      val source = None
+      val destination = None
+      val chatMessage = new ChatMessage(source, destination, "Hello!")
       val chatMessageAsByteString = ByteString(chatMessage.toByteArray)
       clientConnectionHandler.tell(chatMessageAsByteString, sourceClient.ref)
       sourceClient.expectMsg(200.millis, Write(ClientConnectionHandler.missingSourceReply))
@@ -83,31 +87,16 @@ class ClientConnectionHandlerSpec extends TestKit(ActorSystem())
       sourceClient.expectMsg(200.millis, Write(ClientConnectionHandler.notAChatMessageReply))
     }
 
-    "be capable of sending a message to itself and its specified destination" in {
+    "be capable of proxying a message to its ResponseBroadcaster" in {
       val sourceIdentity = ClientIdentity("Source")
       val destination = ClientIdentity("Destination")
       val payload = "I am the text!"
       val chatMessage =
         ChatMessage(Option[ClientIdentity](sourceIdentity), Option[ClientIdentity](destination), payload)
-
-      val chatMessageAsByteString: ByteString = ByteString(chatMessage.toByteArray)
-      clientConnectionHandler.tell(chatMessageAsByteString, sourceClient.ref)
-      sourceClient.expectMsg(200.millis, Write(ByteString(chatMessage.text)))
-      destinationClient.expectMsg(200.millis, Write(ByteString(chatMessage.text)))
-    }
-
-    "let the client know that the specified destination is unreachable" in {
-      val sourceIdentity = ClientIdentity("Source")
-      val destinationIdentity = new ClientIdentity("JonJon")
-      val payload = "Hi JonJon!"
-      val chatMessage =
-        ChatMessage(Option[ClientIdentity](sourceIdentity), Option[ClientIdentity](destinationIdentity), payload)
       val chatMessageAsByteString = ByteString(chatMessage.toByteArray)
-      clientConnectionHandler.tell(chatMessageAsByteString, sourceClient.ref)
 
-      sourceClient.expectMsg(200.millis,
-        Write(ClientConnectionHandler.unresolvedDestinationReply(destinationIdentity.identity)))
-      clientConnectionHandler.underlyingActor.destinationConnection shouldBe sourceClient.ref
+      clientConnectionHandler.tell(chatMessageAsByteString, sourceClient.ref)
+      responseBroadcaster.expectMsg(200.millis, chatMessage)
     }
   }
 }
