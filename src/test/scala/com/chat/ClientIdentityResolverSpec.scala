@@ -22,19 +22,19 @@ class ClientIdentityResolverSpec extends TestKit(ActorSystem())
   val identity = new Identity("My Identity")
 
   var clientConnection = TestProbe()
-  var clientIdentity = new ActorClient(identity, clientConnection.ref)
+  var actorClient = new ActorClient(identity, clientConnection.ref)
   var clientIdentityResolver = TestActorRef(new IdentityResolver())
 
-  var addClientIdentity = new AddActorClient(clientIdentity)
-  var removeClientIdentity = new RemoveActorClient(clientIdentity)
-  var findClientIdentity = new FindActorClient(clientIdentity)
+  var addClientIdentity = new AddActorClient(actorClient)
+  var removeClientIdentity = new RemoveActorClient(actorClient)
+  var findClientIdentity = new FindActorClient(actorClient)
 
   override def beforeEach(): Unit = {
     clientConnection = TestProbe()
-    clientIdentity = new ActorClient(identity, clientConnection.ref)
-    addClientIdentity = new AddActorClient(clientIdentity)
-    removeClientIdentity = new RemoveActorClient(clientIdentity)
-    findClientIdentity = new FindActorClient(clientIdentity)
+    actorClient = new ActorClient(identity, clientConnection.ref)
+    addClientIdentity = new AddActorClient(actorClient)
+    removeClientIdentity = new RemoveActorClient(actorClient)
+    findClientIdentity = new FindActorClient(actorClient)
     clientIdentityResolver = TestActorRef(new IdentityResolver())
   }
 
@@ -47,16 +47,16 @@ class ClientIdentityResolverSpec extends TestKit(ActorSystem())
 
     "greet the client when its identity was successfully added" in {
       clientIdentityResolver ! addClientIdentity
-      clientConnection.expectMsg(200.millis, Write(IdentityResolver.greeting(clientIdentity.getIdentity.name)))
+      clientConnection.expectMsg(200.millis, Write(IdentityResolver.greeting(actorClient.getIdentity.name)))
     }
 
     "let its client know that there cannot be duplicate identities" in {
       clientIdentityResolver.underlyingActor.clientIdentityMap +=
-        clientIdentity.getIdentity.name -> clientIdentity.getActorRef
+        actorClient.getIdentity.name -> actorClient.getActorRef
 
       clientIdentityResolver ! addClientIdentity
 
-      clientConnection.expectMsg(200.millis, Write(IdentityResolver.identityAlreadyExistsMessage(clientIdentity)))
+      clientConnection.expectMsg(200.millis, Write(IdentityResolver.identityAlreadyExistsMessage(actorClient)))
     }
 
     "be capable of removing client identities and addresses" in {
