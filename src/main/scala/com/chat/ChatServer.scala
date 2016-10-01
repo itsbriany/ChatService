@@ -26,7 +26,7 @@ class ChatServer extends Actor with ActorLogging {
       log.info(s"Got a connection from ${remote.toString}")
       val connection = sender()
       val handler =
-        context.actorOf(Props(new ClientConnectionHandler(connection, remote, clientIdentityResolver)))
+        context.actorOf(Props(new ClientConnection(connection, remote, clientIdentityResolver)))
       connection ! Register(handler)
   }
 

@@ -9,9 +9,8 @@ import com.chat.message.{ActorClient, AddActorClient, FindActorClient, RemoveAct
   * Created by itsbriany on 2016-08-30.
   */
 class ClientIdentityResolver extends Actor {
-  type Identity = String
 
-  var clientIdentityMap = new collection.mutable.HashMap[Identity, ActorRef]()
+  var clientIdentityMap = new collection.mutable.HashMap[String, ActorRef]()
 
   override def receive: Receive = {
     case addActorClient: AddActorClient =>
@@ -23,21 +22,21 @@ class ClientIdentityResolver extends Actor {
   }
 
   def handleAddClientIdentity(client: ActorClient): Unit = {
-    if (clientIdentityMap contains client.getIdentity) {
-      client.getConnection ! Write(ClientIdentityResolver.identityAlreadyExistsMessage(client))
+    if (clientIdentityMap contains client.getIdentity.name) {
+      client.getActorRef ! Write(ClientIdentityResolver.identityAlreadyExistsMessage(client))
       return
     }
 
-    clientIdentityMap += client.getIdentity -> client.getConnection
-    client.getConnection ! Write(ClientIdentityResolver.greeting(client.getIdentity))
+    clientIdentityMap += client.getIdentity.name -> client.getActorRef
+    client.getActorRef ! Write(ClientIdentityResolver.greeting(client.getIdentity.name))
   }
 
   def handleRemoveClientIdentity(client: ActorClient): Unit = {
-    clientIdentityMap -= client.getIdentity
+    clientIdentityMap -= client.getIdentity.name
   }
 
   def handleFindClientIdentity(client: ActorClient): Unit = {
-    clientIdentityMap.get(client.getIdentity) match {
+    clientIdentityMap.get(client.getIdentity.name) match {
       case Some(clientActor) => sender ! clientActor
       case None => sender ! None
     }

@@ -3,7 +3,7 @@ package com.chat
 import java.text.SimpleDateFormat
 import java.util.Calendar
 
-import GameEngine.Common.chat.{ChatMessage, ClientIdentity}
+import GameEngine.Common.chat.{ChatMessage, Identity}
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.io.Tcp.Write
 import akka.pattern.ask
@@ -30,11 +30,11 @@ class ResponseBroadcasterSpec extends TestKit(ActorSystem())
   var responseBroadcaster =
     TestActorRef(new ResponseBroadcaster(clientConnection.ref, clientIdentityResolver))
 
-  var sourceClientIdentity = new ClientIdentity("Source")
-  var destinationClientIdentity = new ClientIdentity("Destination")
+  var sourceClientIdentity = new Identity("Source")
+  var destinationClientIdentity = new Identity("Destination")
   var payload = "Some text message"
   var chatMessage =
-    new ChatMessage(Option[ClientIdentity](sourceClientIdentity), Option[ClientIdentity](destinationClientIdentity), payload)
+    new ChatMessage(Option[Identity](sourceClientIdentity), Option[Identity](destinationClientIdentity), payload)
 
   override def beforeEach(): Unit = {
     clientConnection = TestProbe()
@@ -43,19 +43,19 @@ class ResponseBroadcasterSpec extends TestKit(ActorSystem())
     responseBroadcaster =
       TestActorRef(new ResponseBroadcaster(clientConnection.ref, clientIdentityResolver))
 
-    sourceClientIdentity = new ClientIdentity("Source")
-    destinationClientIdentity = new ClientIdentity("Destination")
+    sourceClientIdentity = new Identity("Source")
+    destinationClientIdentity = new Identity("Destination")
     payload = "Some text message"
-    chatMessage = new ChatMessage(Option[ClientIdentity](sourceClientIdentity),
-      Option[ClientIdentity](destinationClientIdentity), payload)
+    chatMessage = new ChatMessage(Option[Identity](sourceClientIdentity),
+      Option[Identity](destinationClientIdentity), payload)
 
     setupClientIdentityResolver()
   }
 
   def setupClientIdentityResolver(): Unit = {
-    implicit val timeout = Timeout(ClientConnectionHandler.resolveDestinationActorTimeout)
+    implicit val timeout = Timeout(ClientConnection.resolveDestinationActorTimeout)
     val destinationActorClient =
-      new ActorClient(destinationClientIdentity.identity, destinationConnection.ref)
+      new ActorClient(destinationClientIdentity, destinationConnection.ref)
     val addActorClient = new AddActorClient(destinationActorClient)
     clientIdentityResolver ? addActorClient
   }
@@ -82,20 +82,20 @@ class ResponseBroadcasterSpec extends TestKit(ActorSystem())
 
     "let the sender know that they must specify a destination" in {
       val destination = None
-      chatMessage = new ChatMessage(Option[ClientIdentity](sourceClientIdentity), destination, payload)
+      chatMessage = new ChatMessage(Option[Identity](sourceClientIdentity), destination, payload)
       responseBroadcaster ! chatMessage
-      clientConnection.expectMsg(200.millis, Write(ClientConnectionHandler.missingDestinationReply))
+      clientConnection.expectMsg(200.millis, Write(ClientConnection.missingDestinationReply))
     }
 
     "let the sender know that the destination is not online" in {
-      destinationClientIdentity = new ClientIdentity("Mr. AFK")
-      val destination = Option[ClientIdentity](destinationClientIdentity)
-      val source = Option[ClientIdentity](sourceClientIdentity)
+      destinationClientIdentity = new Identity("Mr. AFK")
+      val destination = Option[Identity](destinationClientIdentity)
+      val source = Option[Identity](sourceClientIdentity)
       chatMessage = new ChatMessage(source, destination, payload)
 
       responseBroadcaster ! chatMessage
       clientConnection.expectMsg(200.millis,
-        Write(ClientConnectionHandler.unresolvedDestinationReply(destinationClientIdentity.identity)))
+        Write(ClientConnection.unresolvedDestinationReply(destinationClientIdentity.name)))
     }
 
     "be able to broadcast a formatted response to its destination" in {
