@@ -15,7 +15,7 @@ class ChatServer extends Actor with ActorLogging {
 
   IO(Tcp) ! Bind(self, new InetSocketAddress("0.0.0.0", 9000))
   val clientIdentityResolver =
-    context.actorOf(Props[ClientIdentityResolver], s"${ClientIdentityResolver.getClass.getSimpleName}")
+    context.actorOf(Props[IdentityResolver], s"${IdentityResolver.getClass.getSimpleName}")
 
   def receive = {
     case b@Bound(localAddress) => log.info(s"TCP server bound on ${localAddress.toString}")

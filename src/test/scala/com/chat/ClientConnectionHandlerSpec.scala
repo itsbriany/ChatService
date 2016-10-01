@@ -3,11 +3,11 @@ package com.chat
 import java.net.InetSocketAddress
 
 import GameEngine.Common.chat.{ChatMessage, Connect, Identity}
-import akka.actor.{Actor, ActorRef, ActorSystem}
+import akka.actor.ActorSystem
 import akka.io.Tcp.Write
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
-import com.chat.message.{ActorClient, FindActorClient}
+import com.chat.message.ActorClient
 import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpecLike}
 
 import scala.concurrent.duration._
@@ -21,44 +21,28 @@ class ClientConnectionHandlerSpec extends TestKit(ActorSystem())
   with BeforeAndAfterEach {
 
   val address = new InetSocketAddress("0.0.0.0", 0)
-  var fakeClientIdentityResolver = TestActorRef(new FakeClientIdentityResolver(null, null))
+  var identityResolver = TestProbe()
   var sourceClient = TestProbe()
   var clientConnection =
-    TestActorRef(new ClientConnection(sourceClient.ref, address, fakeClientIdentityResolver))
+    TestActorRef(new ClientConnection(sourceClient.ref, address, identityResolver.ref))
   var destinationClient = TestProbe()
   var destinationConnectionHandler =
-    TestActorRef(new ClientConnection(destinationClient.ref, address, fakeClientIdentityResolver))
+    TestActorRef(new ClientConnection(destinationClient.ref, address, identityResolver.ref))
   var responseBroadcaster = TestProbe()
 
   override def beforeEach(): Unit = {
+    val destinationIdentity = new Identity("Destination")
     destinationClient = TestProbe()
-    val destinationId = new Identity("Destination")
-    fakeClientIdentityResolver = TestActorRef(new FakeClientIdentityResolver(destinationClient.ref, destinationId.name))
-
+    identityResolver = TestProbe()
     destinationConnectionHandler =
-      TestActorRef(new ClientConnection(destinationClient.ref, address, fakeClientIdentityResolver))
-    val destinationActorClient = new ActorClient(destinationId, destinationClient.ref)
+      TestActorRef(new ClientConnection(destinationClient.ref, address, identityResolver.ref))
+    val destinationActorClient = new ActorClient(destinationIdentity, destinationClient.ref)
     destinationConnectionHandler.underlyingActor.actorClient = Some(destinationActorClient)
 
     sourceClient = TestProbe()
-    clientConnection =
-      TestActorRef(new ClientConnection(sourceClient.ref, address, fakeClientIdentityResolver))
+    clientConnection = TestActorRef(new ClientConnection(sourceClient.ref, address, identityResolver.ref))
     responseBroadcaster = TestProbe()
     clientConnection.underlyingActor.responseBroadcaster = responseBroadcaster.ref
-  }
-
-
-  class FakeClientIdentityResolver(destinationTestProbeRef: ActorRef, id: String) extends Actor {
-    val mockConnection = destinationTestProbeRef
-    val expectedIdentity = id
-
-    override def receive: Receive = {
-      case findActorClient: FindActorClient =>
-        if (findActorClient.getClientIdentity.getIdentity.name == expectedIdentity)
-          sender ! mockConnection
-        else
-          sender ! None
-    }
   }
 
   s"A ${ClientConnection.getClass.getSimpleName}" must {

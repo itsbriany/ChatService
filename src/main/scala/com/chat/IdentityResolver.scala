@@ -8,7 +8,7 @@ import com.chat.message.{ActorClient, AddActorClient, FindActorClient, RemoveAct
 /**
   * Created by itsbriany on 2016-08-30.
   */
-class ClientIdentityResolver extends Actor {
+class IdentityResolver extends Actor {
 
   var clientIdentityMap = new collection.mutable.HashMap[String, ActorRef]()
 
@@ -23,12 +23,12 @@ class ClientIdentityResolver extends Actor {
 
   def handleAddClientIdentity(client: ActorClient): Unit = {
     if (clientIdentityMap contains client.getIdentity.name) {
-      client.getActorRef ! Write(ClientIdentityResolver.identityAlreadyExistsMessage(client))
+      client.getActorRef ! Write(IdentityResolver.identityAlreadyExistsMessage(client))
       return
     }
 
     clientIdentityMap += client.getIdentity.name -> client.getActorRef
-    client.getActorRef ! Write(ClientIdentityResolver.greeting(client.getIdentity.name))
+    client.getActorRef ! Write(IdentityResolver.greeting(client.getIdentity.name))
   }
 
   def handleRemoveClientIdentity(client: ActorClient): Unit = {
@@ -43,7 +43,7 @@ class ClientIdentityResolver extends Actor {
   }
 }
 
-object ClientIdentityResolver {
+object IdentityResolver {
   def identityAlreadyExistsMessage(client: ActorClient): ByteString =
     ByteString(s"${client.getIdentity} already exists!")
 

@@ -26,7 +26,7 @@ class ResponseBroadcasterSpec extends TestKit(ActorSystem())
 
   var clientConnection = TestProbe()
   var destinationConnection = TestProbe()
-  var clientIdentityResolver = TestActorRef(Props[ClientIdentityResolver])
+  var clientIdentityResolver = TestActorRef(Props[IdentityResolver])
   var responseBroadcaster =
     TestActorRef(new ResponseBroadcaster(clientConnection.ref, clientIdentityResolver))
 
@@ -39,7 +39,7 @@ class ResponseBroadcasterSpec extends TestKit(ActorSystem())
   override def beforeEach(): Unit = {
     clientConnection = TestProbe()
     destinationConnection = TestProbe()
-    clientIdentityResolver = TestActorRef(Props[ClientIdentityResolver])
+    clientIdentityResolver = TestActorRef(Props[IdentityResolver])
     responseBroadcaster =
       TestActorRef(new ResponseBroadcaster(clientConnection.ref, clientIdentityResolver))
 

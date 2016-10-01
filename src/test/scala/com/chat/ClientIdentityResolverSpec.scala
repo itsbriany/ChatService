@@ -23,7 +23,7 @@ class ClientIdentityResolverSpec extends TestKit(ActorSystem())
 
   var clientConnection = TestProbe()
   var clientIdentity = new ActorClient(identity, clientConnection.ref)
-  var clientIdentityResolver = TestActorRef(new ClientIdentityResolver())
+  var clientIdentityResolver = TestActorRef(new IdentityResolver())
 
   var addClientIdentity = new AddActorClient(clientIdentity)
   var removeClientIdentity = new RemoveActorClient(clientIdentity)
@@ -35,10 +35,10 @@ class ClientIdentityResolverSpec extends TestKit(ActorSystem())
     addClientIdentity = new AddActorClient(clientIdentity)
     removeClientIdentity = new RemoveActorClient(clientIdentity)
     findClientIdentity = new FindActorClient(clientIdentity)
-    clientIdentityResolver = TestActorRef(new ClientIdentityResolver())
+    clientIdentityResolver = TestActorRef(new IdentityResolver())
   }
 
-  s"A ${ClientIdentityResolver.getClass.getSimpleName}" must {
+  s"A ${IdentityResolver.getClass.getSimpleName}" must {
 
     s"map client identities to their ${ClientConnection.getClass.getSimpleName}" in {
       clientIdentityResolver ! addClientIdentity
@@ -47,7 +47,7 @@ class ClientIdentityResolverSpec extends TestKit(ActorSystem())
 
     "greet the client when its identity was successfully added" in {
       clientIdentityResolver ! addClientIdentity
-      clientConnection.expectMsg(200.millis, Write(ClientIdentityResolver.greeting(clientIdentity.getIdentity.name)))
+      clientConnection.expectMsg(200.millis, Write(IdentityResolver.greeting(clientIdentity.getIdentity.name)))
     }
 
     "let its client know that there cannot be duplicate identities" in {
@@ -56,7 +56,7 @@ class ClientIdentityResolverSpec extends TestKit(ActorSystem())
 
       clientIdentityResolver ! addClientIdentity
 
-      clientConnection.expectMsg(200.millis, Write(ClientIdentityResolver.identityAlreadyExistsMessage(clientIdentity)))
+      clientConnection.expectMsg(200.millis, Write(IdentityResolver.identityAlreadyExistsMessage(clientIdentity)))
     }
 
     "be capable of removing client identities and addresses" in {
